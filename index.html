@@ -187,6 +187,32 @@ document.getElementById('manualInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') manualCheck();
 });
 
+// QR'dan gelen link ?ticketId=BF-2025-001 şeklinde açıldığında
+// otomatik olarak check-in işlemini başlat - kamera gerekmez.
+(function autoCheckFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const ticketId = params.get('ticketId');
+    if (ticketId) {
+      const camBox = document.getElementById('camBox');
+      const sb = document.getElementById('startBtn');
+      if (camBox) camBox.style.display = 'none';
+      if (sb) sb.style.display = 'none';
+      showWaiting(ticketId.toUpperCase());
+      verifyTicket(ticketId.toUpperCase());
+    }
+  } catch (err) {
+    const card = document.getElementById('resultCard');
+    if (card) {
+      card.className = 'result-card err';
+      card.style.display = 'block';
+      document.getElementById('rIcon').textContent = '⚠️';
+      document.getElementById('rName').textContent = 'Otomatik kontrol hatası';
+      document.getElementById('rDetail').textContent = err.message;
+    }
+  }
+})();
+
 async function startCamera() {
   const video = document.getElementById('video');
   const placeholder = document.getElementById('placeholder');
