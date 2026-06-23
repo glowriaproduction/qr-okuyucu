@@ -145,6 +145,7 @@
     <video id="video" playsinline muted style="display:none"></video>
     <canvas id="canvas"></canvas>
     <div class="scan-frame" id="scanFrame"></div>
+    <div id="debugInfo" style="position:absolute;bottom:8px;left:8px;color:#0f0;font-size:11px;font-family:monospace;background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:4px;display:none;"></div>
   </div>
 
   <button class="btn" id="startBtn">▶ Kamerayı Başlat</button>
@@ -191,7 +192,13 @@ async function startCamera() {
   const placeholder = document.getElementById('placeholder');
   const scanFrame = document.getElementById('scanFrame');
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: "environment",
+        width: { ideal: 720 },
+        height: { ideal: 720 }
+      }
+    });
     video.srcObject = stream;
     video.style.display = 'block';
     placeholder.style.display = 'none';
@@ -218,17 +225,27 @@ function stopCamera() {
   startBtn.textContent = '▶ Kamerayı Başlat';
 }
 
+let frameCount = 0, lastFrameTime = Date.now();
+
 function tick() {
   if (!scanning) return;
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
-  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+  const debugInfo = document.getElementById('debugInfo');
+  if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+    frameCount++;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: "attemptBoth"
+    });
+    if (debugInfo) {
+      debugInfo.style.display = 'block';
+      debugInfo.textContent = `${canvas.width}x${canvas.height} | ${frameCount}f | ${code ? 'QR✓' : 'QR✗'}`;
+    }
     if (code && code.data) {
       const now = Date.now();
       if (code.data !== lastScanned || now - lastScanTime > 4000) {
@@ -238,6 +255,9 @@ function tick() {
         handleScan(code.data);
       }
     }
+  } else if (debugInfo) {
+    debugInfo.style.display = 'block';
+    debugInfo.textContent = 'video readyState: ' + video.readyState;
   }
   requestAnimationFrame(tick);
 }
